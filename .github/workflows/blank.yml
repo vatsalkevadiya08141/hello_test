@@ -1,0 +1,95 @@
+name: Auto Deploy to Servers
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to main branch
+      - master  # Or master branch
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  notify-servers:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Fetch last 2 commits to see what changed
+      
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "files=$(git diff --name-only HEAD^ HEAD | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_OUTPUT
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install websockets aiohttp
+      
+      - name: Send deployment notification
+        env:
+          WEBSOCKET_URL: ${{ secrets.WEBSOCKET_URL }}  # Add this in GitHub Secrets
+        run: |
+          python - <<EOF
+          import asyncio
+          import websockets
+          import json
+          import os
+          import sys
+
+          async def notify_deployment():
+              websocket_url = os.environ.get('WEBSOCKET_URL', 'ws://192.168.1.129:8765')
+              
+              deployment_data = {
+                  'type': 'GITHUB_UPDATE',
+                  'repository': '${{ github.repository }}',
+                  'branch': '${{ github.ref_name }}',
+                  'commit_sha': '${{ github.sha }}',
+                  'commit_message': '${{ github.event.head_commit.message }}',
+                  'author': '${{ github.actor }}',
+                  'changed_files': '${{ steps.changed-files.outputs.files }}',
+                  'timestamp': '${{ github.event.head_commit.timestamp }}',
+                  'repo_url': '${{ github.repositoryUrl }}'
+              }
+              
+              try:
+                  async with websockets.connect(websocket_url, ping_interval=30) as websocket:
+                      # Send GITHUB tag to identify as deployment notification
+                      await websocket.send("GITHUB:DEPLOY_NOTIFICATION")
+                      print(f"Sent identification tag")
+                      
+                      # Send deployment data
+                      message = json.dumps(deployment_data)
+                      await websocket.send(message)
+                      print(f"Sent deployment notification: {message}")
+                      
+                      # Wait for acknowledgment
+                      response = await asyncio.wait_for(websocket.recv(), timeout=10)
+                      print(f"Received response: {response}")
+                      
+                      return True
+              except asyncio.TimeoutError:
+                  print("Timeout waiting for server response")
+                  return False
+              except Exception as e:
+                  print(f"Error sending notification: {e}")
+                  return False
+
+          if __name__ == "__main__":
+              result = asyncio.run(notify_deployment())
+              sys.exit(0 if result else 1)
+          EOF
+      
+      - name: Deployment status
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Deployment notification sent successfully"
+          else
+            echo "⚠️ Failed to send deployment notification (servers may still update via fallback)"
+          fi
