@@ -10,5 +10,3 @@ vatsal kevadiya
 vatsal kevadiyaaaaaaaaiiiiiia
 vayakasfkdjkfnds
 vatsal
-
-
