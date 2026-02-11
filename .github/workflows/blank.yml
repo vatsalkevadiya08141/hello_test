@@ -34,6 +34,14 @@ jobs:
       - name: Send deployment notification
         env:
           WEBSOCKET_URL: ${{ secrets.WEBSOCKET_URL }}  # Add this in GitHub Secrets
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          AUTHOR: ${{ github.actor }}
+          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+          TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+          REPO_URL: ${{ github.repositoryUrl }}
         run: |
           python - <<EOF
           import asyncio
@@ -43,18 +51,18 @@ jobs:
           import sys
 
           async def notify_deployment():
-              websocket_url = os.environ.get('WEBSOCKET_URL', 'ws://161.97.92.202:8766')
+              websocket_url = os.environ.get('WEBSOCKET_URL', 'ws://efx-periplex.vicharak.in:8765')
               
               deployment_data = {
                   'type': 'GITHUB_UPDATE',
-                  'repository': '${{ github.repository }}',
-                  'branch': '${{ github.ref_name }}',
-                  'commit_sha': '${{ github.sha }}',
-                  'commit_message': '${{ github.event.head_commit.message }}',
-                  'author': '${{ github.actor }}',
-                  'changed_files': '${{ steps.changed-files.outputs.files }}',
-                  'timestamp': '${{ github.event.head_commit.timestamp }}',
-                  'repo_url': '${{ github.repositoryUrl }}'
+                  'repository': os.environ.get('REPOSITORY', ''),
+                  'branch': os.environ.get('BRANCH', ''),
+                  'commit_sha': os.environ.get('COMMIT_SHA', ''),
+                  'commit_message': os.environ.get('COMMIT_MESSAGE', ''),
+                  'author': os.environ.get('AUTHOR', ''),
+                  'changed_files': os.environ.get('CHANGED_FILES', ''),
+                  'timestamp': os.environ.get('TIMESTAMP', ''),
+                  'repo_url': os.environ.get('REPO_URL', '')
               }
               
               try:
