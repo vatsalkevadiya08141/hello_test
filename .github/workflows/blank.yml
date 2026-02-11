@@ -51,7 +51,7 @@ jobs:
           import sys
 
           async def notify_deployment():
-              websocket_url = os.environ.get('WEBSOCKET_URL', 'ws://efx-periplex.vicharak.in:8765')
+              websocket_url = os.environ.get('WEBSOCKET_URL', 'ws://161.97.92.202:8766:8765')
               
               deployment_data = {
                   'type': 'GITHUB_UPDATE',
